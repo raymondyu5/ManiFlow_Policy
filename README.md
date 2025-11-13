@@ -48,14 +48,15 @@ ManiFlow is a visuomotor imitation learning policy for general robot manipulatio
 
 ## ✨ News
 
+* 🚀**2025-11-12, Support RoboTwin2.0**! Please check [RoboTwin2.0 branch](https://github.com/geyan21/ManiFlow_Policy/tree/robotwin2.0) for more details.
+
 * ❗**2025-09-03, Released ManiFlow**, a general robot manipulation policy via consistency flow training. Check out the [Project Page](https://maniflow-policy.github.io/) and [Paper](https://arxiv.org/pdf/2509.01819v1).
 
 ---
 
 ## 📝 Upcoming Features
 
-* 🐳 **Docker containerization** for simplified environment setup
-* 🔄 **RoboTwin 2.0 support** with enhanced task diversity and domain randomization
+* 🚀 **More efficient and capable 3D encoders** for large-scale scenes with dense point clouds input
 * 🤖 **Real-Time Execution** with [RTC](https://www.pi.website/research/real_time_chunking) and varied temporal ensembling
 
 ---
@@ -97,8 +98,8 @@ bash scripts/gen_demonstrations_RoboTwin1.0.sh diverse_bottles_pick 0
 ⬇️ **Download pre-generated data:**
 For convenience, pre-generated RoboTwin 1.0 datasets are available on [Google Drive](https://drive.google.com/file/d/1YDOSyL3YT5DYyGZF-0xV-nAs1GklUr0d/view?usp=drive_link). Download and extract the `.zarr` files directly to your data directory.
 
-**🔥 Coming Soon - RoboTwin 2.0:**
-We will be releasing ManiFlow support for RoboTwin 2.0, featuring enhanced task diversity, comprehensive domain randomization, and more challenging manipulation scenarios. Stay tuned for updates!
+**🔥 RoboTwin 2.0:**
+Please check [RoboTwin2.0 branch](https://github.com/geyan21/ManiFlow_Policy/tree/robotwin2.0) for more details, with enhanced task diversity, comprehensive domain randomization, and more challenging manipulation scenarios. 
 
 
 ### 🎮 Other Simulation Environments (Adroit, DexArt, MetaWorld)
