@@ -1,0 +1,186 @@
+name: train_real
+
+# Experiment settings
+exp_name: "real_data"
+task_name: "real_pcd"
+
+# Model architecture parameters
+horizon: 16
+n_obs_steps: 2
+n_action_steps: 16
+n_latency_steps: 0
+dataset_obs_steps: ${n_obs_steps}
+obs_as_global_cond: True
+
+# Dataset configuration
+dataset:
+  _target_: maniflow.dataset.real_dataset.RealDataset
+  data_path: /home/raymond/projects/data/teleop/ramdom
+  # Use "all" to attempt loading all, or specify valid episodes (excludes episode_39, episode_67, episode_83 which have no metadata)
+  load_list: ["all"]  # Will skip invalid episodes automatically
+  obs_key: ['joint_positions', 'gripper_position']  # Adjust based on your data
+  horizon: ${horizon}
+  pad_before: 0
+  pad_after: 0
+  seed: 42
+  val_ratio: 0.1
+  num_demo: 100  # Number of demonstrations to load (set high to get all)
+  max_train_episodes: null  # null = use all, or specify max number
+  downsample_points: 2048
+  camera_id: ["CL8384200N1"]  # Your camera IDs
+  crop_region: null  # null or [x_min, y_min, z_min, x_max, y_max, z_max]
+  use_pc_color: false
+
+# Shape metadata (will be inferred from dataset)
+shape_meta:
+  obs:
+    point_cloud:
+      shape: [2048, 3]  # [num_points, 3] or [num_points, 6] if using color
+      type: point_cloud
+    agent_pos:
+      shape: [null]  # Will be inferred from obs_key dimensions
+      type: low_dim
+  action:
+    shape: [null]  # Will be inferred from data
+
+# Policy configuration
+policy:
+  _target_: maniflow.policy.maniflow_pointcloud_policy.ManiFlowTransformerPointcloudPolicy
+  model_name: "DiTX"
+
+  # Transformer architecture
+  n_layer: 12
+  n_head: 8
+  n_emb: 768
+  visual_cond_len: 512  # Number of point cloud tokens
+  qkv_bias: false
+  qk_norm: false
+
+  # Training settings
+  language_conditioned: false
+  pre_norm_modality: false
+
+  # Consistency Flow Training
+  flow_batch_ratio: 0.75
+  consistency_batch_ratio: 0.25
+  sample_t_mode_flow: "beta"
+  sample_t_mode_consistency: "discrete"
+  sample_dt_mode_consistency: "uniform"
+  sample_target_t_mode: "relative"
+  denoise_timesteps: 10
+
+  # Timestep embeddings
+  diffusion_timestep_embed_dim: 128
+  diffusion_target_t_embed_dim: 128
+
+  # Point cloud encoder
+  encoder_type: "DP3Encoder"
+  encoder_output_dim: 128
+  use_pc_color: false  # Set to true if using RGB point clouds
+  pointnet_type: "pointnet"
+  downsample_points: true
+  crop_shape: null
+
+  pointcloud_encoder_cfg:
+    in_channels: 3  # 3 for XYZ, 6 for XYZ+RGB
+    out_channels: ${policy.encoder_output_dim}
+    use_layernorm: true
+    final_norm: layernorm
+    normal_channel: false
+    num_points: ${policy.visual_cond_len}
+    pointwise: true
+
+  # Policy parameters
+  horizon: ${horizon}
+  n_action_steps: ${n_action_steps}
+  n_obs_steps: ${n_obs_steps}
+  num_inference_steps: 10
+  obs_as_global_cond: true
+  shape_meta: ${shape_meta}
+
+# EMA model
+ema:
+  _target_: maniflow.model.diffusion.ema_model.EMAModel
+  update_after_step: 0
+  inv_gamma: 1.0
+  power: 0.75
+  min_value: 0.0
+  max_value: 0.9999
+
+# Data loaders
+dataloader:
+  batch_size: 64  # Adjust based on GPU memory
+  num_workers: 4
+  shuffle: True
+  pin_memory: True
+  persistent_workers: True
+
+val_dataloader:
+  batch_size: 32
+  num_workers: 4
+  shuffle: False
+  pin_memory: True
+  persistent_workers: False
+
+# Optimizer
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 1.0e-4
+  betas: [0.9, 0.95]
+  eps: 1.0e-8
+  weight_decay: 1.0e-3
+
+# Training configuration
+training:
+  device: "cuda:0"
+  seed: 42
+  debug: False  # Set to True for quick testing
+  resume: True  # Resume from checkpoint if available
+  lr_scheduler: cosine
+  lr_warmup_steps: 500
+  num_epochs: 1000  # Total training epochs
+  gradient_accumulate_every: 1
+  use_ema: True  # Use EMA model for better performance
+
+  # Offline training - no environment rollouts
+  rollout_every: 999999  # Disabled (no simulation)
+  checkpoint_every: 50  # Save checkpoint every N epochs
+  val_every: 10  # Run validation every N epochs
+  sample_every: 5  # Sample and check action MSE every N epochs
+
+  max_train_steps: null  # null = use all batches
+  max_val_steps: null  # null = use all validation batches
+  tqdm_interval_sec: 1.0
+
+# Logging (W&B)
+logging:
+  group: ${exp_name}
+  id: null
+  mode: online  # "online", "offline", or "disabled"
+  name: ${task_name}_seed${training.seed}
+  project: ManiFlow-Real
+  resume: true
+  tags:
+    - real_data
+    - offline_training
+
+# Checkpointing
+checkpoint:
+  save_ckpt: True
+  topk:
+    monitor_key: val_loss
+    mode: min
+    k: 3  # Keep top 3 checkpoints
+    format_str: 'epoch={epoch:04d}-val_loss={val_loss:.6f}.ckpt'
+  save_last_ckpt: True
+  save_last_snapshot: False
+
+# Hydra configuration
+hydra:
+  job:
+    override_dirname: ${name}
+  run:
+    dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+  sweep:
+    dir: data/outputs/${now:%Y.%m.%d}/${now:%H.%M.%S}_${name}_${task_name}
+    subdir: ${hydra.job.num}
